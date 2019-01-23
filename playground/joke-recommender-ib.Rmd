@@ -1,0 +1,42 @@
+---
+title: "Jokes Recommender ver. 1"
+author: "Igor Baranov"
+date: "January 22, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Init libraries
+```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+if(! "recommenderlab" %in% installed.packages()) 
+  install.packages("recommenderlab", depend = TRUE)
+if(! "readr" %in% installed.packages()) 
+  install.packages("readr", depend = TRUE)
+
+library("recommenderlab")
+library("ggplot2")
+library("readr")
+```
+
+## Set directory to current script (works in R Studio only)
+```{r}
+this.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
+setwd(this.dir)
+```
+
+## Load the jokes rating data
+```{r}
+ratings <- read_csv(file="../data/jesterfinal151cols.csv.zip")
+head(ratings)
+```
+
+## Load the jokes text
+```{r}
+jokes <- read_tsv(file="../data/jester_items.tsv")
+head(jokes)
+```
