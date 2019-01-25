@@ -11,32 +11,100 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Init libraries
-```{r echo=TRUE, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Init libraries
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 if(! "recommenderlab" %in% installed.packages()) 
   install.packages("recommenderlab", depend = TRUE)
 if(! "readr" %in% installed.packages()) 
   install.packages("readr", depend = TRUE)
+if(! "RDSTK" %in% installed.packages()) 
+  install.packages("RDSTK", depend = TRUE)
 
 library("recommenderlab")
 library("ggplot2")
 library("readr")
+library("RDSTK")
+
 ```
 
 ## Set directory to current script (works in R Studio only)
 ```{r}
-this.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
-setwd(this.dir)
+#this.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
+#setwd(this.dir)
 ```
 
-## Load the jokes rating data
-```{r}
-ratings <- read_csv(file="../data/jesterfinal151cols.csv.zip")
-head(ratings)
+# Load the jokes rating data
+```{r message=FALSE, warning=FALSE}
+df <- read_csv(file="../data/jesterfinal151cols.csv.zip",col_names = FALSE)
+
+#Rename columns as per their "Joke ID"
+names(df)[1]<-"RATINGS"
+for (i in 2:ncol(df)) {
+  names(df)[i]<-i-1
+}
+
+#replace all 99 ratings with NA so we can filter them out
+df[,2:151][df[,2:151]==99]<-NA
+
+head(df, 10)
 ```
 
 ## Load the jokes text
-```{r}
-jokes <- read_tsv(file="../data/jester_items.tsv")
+```{r message=FALSE, warning=FALSE}
+jokes <- read_tsv(file="../data/jester_items.tsv",col_names = FALSE)
+jokes <- jokes['X2']
 head(jokes)
+```
+
+## What's the distribution of rating count? Many jokes probably have 0 ratings.
+```{r}
+ratingcount<-nrow(df)-colSums(is.na(df[,2:151]))
+summary(ratingcount)
+```
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot() + aes(ratingcount)+ geom_histogram(colour="black", fill="white")+
+  ylab("Number of Jokes")+
+  xlab("Number of Ratings")
+```
+
+## How many users have given a reasonable amount of ratings?
+```{r}
+ratingcount_u<-as.vector(df[[1]])
+summary(ratingcount_u)
+```
+
+```{r message=FALSE, warning=FALSE}
+ggplot() + aes(ratingcount_u)+ geom_histogram(colour="black", fill="white")+
+  ylab("Number of Users")+
+  xlab("Number of Ratings Given")
+```
+
+## Get sentiment score for jokes to see if there's any relation to joke rating and sentiment
+```{r}
+jokes[,2]<-1
+jokes[,3]<-1
+colnames(jokes)<-c("Joke","Sentiment","AvgRating")
+head(jokes)
+```
+
+```{r}
+for (i in 1:nrow(jokes)) {
+  jokes[i,2]<-text2sentiment(jokes[[i,1]])
+}
+```
+
+
+```{r}
+for (i in 1:nrow(jokes)) {
+  jokes[i,3]<- median(df[[i+1]],na.rm=TRUE)
+}
+jokes
+```
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(data=jokes, mapping = aes(x=jokes$Sentiment,y=jokes$AvgRating)) +
+  geom_point()+
+  ggtitle("Sentiment vs Median Rating")+
+  ylab("Median Rating") + xlab("Sentiment Score")
 ```
