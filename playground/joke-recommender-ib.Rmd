@@ -148,7 +148,7 @@ image(sample(rm, 500), main = "Raw ratings")
 summary(getRatings(rm)) 
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 qplot(getRatings(normalize(rm, method = "Z-score")),
       main = "Histogram of normalized ratings", xlab = "Rating") 
 
@@ -162,7 +162,7 @@ Jokes50
 
 # This distribution seems better than the one done for all the users
 ```{r}
-summary(getRatings(normalize(rm, method = "Z-score"))) 
+summary(getRatings(normalize(Jokes50, method = "Z-score"))) 
 ```
 
 # Seems people get tired of rating jokes at a logarithmic pace. But most rate some.
@@ -187,7 +187,7 @@ qplot(colMeans(rm), binwidth = .5,
  In other words, some people don't want to see certain jokes at all.
  Same on 5 and on 3. We can give it the binary treatment later
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 recommenderRegistry$get_entries(dataType = "realRatingMatrix")
 train <- Jokes50[1:500]
 ```
@@ -213,15 +213,11 @@ algorithms <- list(
   "popular items" = list(name="POPULAR", param=list(normalize = "Z-score")),
   "user-based CF" = list(name="UBCF", param=list(normalize = "Z-score",
                                                  method="Cosine",
-                                                 nn=50, minRating=3)),
-  "Latent factors" = list(name="ALS", param=list(normalize = "Z-score",
-                                                 n_factors=20)),
-  "item-based CF" = list(name="IBCF", param=list(normalize = "Z-score",method="pearson",k=50
-  ))
+                                                 nn=50))
 )
 ```
 
-## run algorithms, predict next n jokes
+## run algorithms, predict next n jokes (list)
 ```{r}
 results <- evaluate(scheme, algorithms, n=c(1, 3, 5, 10, 15, 20))
 ```
@@ -233,8 +229,7 @@ plot(results, annotate = 1:4, legend="topleft")
 
 ## create a user-based CF recommender using training data
 ```{r}
-rcmnd_ub <- Recommender(tr, "UBCF",
-                        param=list(method="pearson",nn=50))
+rcmnd_ub <- Recommender(tr, "UBCF", param=list(method="pearson",nn=50))
 ```
 
 ## create predictions for the test users using known ratings
@@ -243,7 +238,7 @@ pred_ub <- predict(rcmnd_ub, tst_known, type="ratings"); pred_ub
 ```
 
 ## evaluate recommendations on "unknown" ratings
-```{r}
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 acc_ub <- calcPredictionAccuracy(pred_ub, tst_unknown);
 as(acc_ub,"matrix")
 ```
@@ -254,30 +249,14 @@ as(tst_unknown, "matrix")[1:8,1:5]
 as(pred_ub, "matrix")[1:8,1:5]
 ```
 
-## repeat with the item-based approach
+## Create top-N recommendations for new users (users 1000 and 1001)
 ```{r}
-rcmnd_ib <- Recommender(tr, "IBCF",
-                        param=list(method="pearson",k=50))
-pred_ib <- predict(rcmnd_ib, tst_known, type="ratings")
-acc_ib <- calcPredictionAccuracy(pred_ib, tst_unknown) 
-acc <- rbind(UBCF = acc_ub, IBCF = acc_ib); acc
-```
-
-```{r}
-rcmnd_als <- Recommender(tr, "ALS",
-                         param=list(n_factors=20))
-pred_als <- predict(rcmnd_als, tst_known, type="ratings")
-acc_als <- calcPredictionAccuracy(pred_als, tst_unknown) 
-acc <- rbind(UBCF = acc_ub, IBCF = acc_ib, ALS = acc_als); acc
-```
-
-## Create top-N recommendations for new users (users 101 and 102)
-```{r}
-pre <- predict(rcmnd_ub, Jokes50[101:102], n = 10)
+pre <- predict(rcmnd_ub, Jokes50[1000:1001], n = 10)
 pre
+a<-Jokes50[1001]
 ```
 
 ## Recommendations as 'topNList' with n = 10 for 2 users. 
 ```{r}
 as(pre, "list")
-``
+```
