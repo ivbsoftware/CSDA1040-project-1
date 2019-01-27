@@ -265,11 +265,12 @@ pre
 as(pre, "list")
 ```
 
-## Create a 'new' user ratings and recomment next joke
+## Create a 'new' user ratings and recommend next joke
 
 ```{r message=FALSE, warning=FALSE}
 # create a random matrix with ratings
 rr <- sample(c(NA,0:5),ncol(df)-1, replace=TRUE, prob=c(.7,rep(.3/6,6)))
+rr
 
 ## coerce into a realRatingMAtrix
 m <- matrix(rr,
@@ -285,9 +286,11 @@ print (ratings.new)
 # recommend next joke
 recNext <- predict(rcmnd_ub, ratings.new, n = 1)
 recNum<-as(recNext, "list")
+recNum
 
 sprintf("The next recommended joke is %s", recNum[[1]])
 print (jokes[recNum[[1]],1])
+
 ```
 
 
