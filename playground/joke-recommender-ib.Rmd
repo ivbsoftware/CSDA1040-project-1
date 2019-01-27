@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Init libraries
+set.seed(777)
+
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 if(! "recommenderlab" %in% installed.packages()) 
   install.packages("recommenderlab", depend = TRUE)
@@ -43,7 +45,7 @@ names(df)     <- c("RATINGS",1:(ncol(df)-1))
 row.names(df) <- c(1:nrow(df))
 
 #replace all 99 ratings with NA so we can filter them out
-df[,2:151][df[,2:151]==99]<-NA
+df[,2:ncol(df)][df[,2:ncol(df)]==99]<-NA
 df
 ```
 
@@ -56,7 +58,7 @@ head(jokes)
 
 ## What's the distribution of rating count? Many jokes probably have 0 ratings.
 ```{r}
-ratingcount<-nrow(df)-colSums(is.na(df[,2:151]))
+ratingcount<-nrow(df)-colSums(is.na(df[,2:ncol(df)]))
 summary(ratingcount)
 ```
 
@@ -109,8 +111,11 @@ ggplot(data=jokes, mapping = aes(x=jokes$Sentiment,y=jokes$AvgRating)) +
 
 # Use with Recommender Lab library
 ## Convert data to realRatingMatrix object
+
 ```{r message=FALSE, warning=FALSE}
 s<-as(df[,2:ncol(df)], "matrix")
+dimnames(s) <- list(rownames(s, do.NULL = FALSE, prefix = "u"),
+                    colnames(s, do.NULL = FALSE, prefix = "j"))
 s<-as(dropNA(s), "sparseMatrix")
 rm <- new("realRatingMatrix",data=s)
 rm
@@ -253,10 +258,43 @@ as(pred_ub, "matrix")[1:8,1:5]
 ```{r}
 pre <- predict(rcmnd_ub, Jokes50[1000:1001], n = 10)
 pre
-a<-Jokes50[1001]
 ```
 
 ## Recommendations as 'topNList' with n = 10 for 2 users. 
 ```{r}
 as(pre, "list")
+```
+
+## Create a 'new' user ratings and recomment next joke
+
+```{r message=FALSE, warning=FALSE}
+# create a random matrix with ratings
+rr <- sample(c(NA,0:5),ncol(df)-1, replace=TRUE, prob=c(.7,rep(.3/6,6)))
+
+## coerce into a realRatingMAtrix
+m <- matrix(rr,
+	nrow=1, ncol=(ncol(df)-1), dimnames = list(
+	    user=paste('u', 1:1, sep=''),
+	    item=paste('i', 1:(ncol(df)-1), sep='')
+    ))
+print (m)
+
+ratings.new <- as(m, "realRatingMatrix")
+print (ratings.new)
+
+# recommend next joke
+recNext <- predict(rcmnd_ub, ratings.new, n = 1)
+recNum<-as(recNext, "list")
+
+sprintf("The next recommended joke is %s", recNum[[1]])
+print (jokes[recNum[[1]],1])
+```
+
+
+# Now let's prepare data for the Shiny app
+
+## Saving recommender data objects
+```{r}
+saveRDS(rcmnd_ub, file = "jokeRecommender.Rds")
+saveRDS(jokes, file = "jokes.Rds")
 ```
