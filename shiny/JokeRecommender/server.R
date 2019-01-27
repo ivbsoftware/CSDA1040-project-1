@@ -3,6 +3,8 @@
 #
 
 library(shiny)
+library(shinyjs)
+
 library("recommenderlab")
 library("ggplot2")
 library("RDSTK")
@@ -52,23 +54,35 @@ predict_joke_id <- function(method) {
   return(as.numeric(recNum[[1]]))
 }
 
-# find next joke object
-next_joke_id <- function(method) {
-  if (method == "RANDOM") {
-    nextJokeId <- next_random_joke_id()
-  } else {
-    nextJokeId <- predict_joke_id(method)
-  }
-}
+# pick first joke at
+currentJokeId <- next_random_joke_id()
 
 
 # server logic
 shinyServer(function(input, output) {
-   
-  output$text <- renderText({
-    return(
-      jokes[[next_joke_id("RANDOM"),"Joke"]]
-    )
+  shinyjs::hide("recommend")
+  
+  # runs on button click
+  observeEvent(input$updateRandom, {
+    currentJokeId <- next_random_joke_id()
+
+    print("a")
+    
+    output$text <- renderText({
+      return(jokes[[currentJokeId,"Joke"]])
+    })
   })
 
+  observeEvent(input$recommend, {
+    currentJokeId <- predict_joke_id("")
+    
+    output$text <- renderText({
+      return(jokes[[currentJokeId,"Joke"]])
+    })
+  })
+  
+  # runs on page rendering
+  output$text <- renderText({
+    return(jokes[[currentJokeId,"Joke"]])
+  })
 })
