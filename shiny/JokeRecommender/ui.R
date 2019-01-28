@@ -16,15 +16,18 @@ shinyUI(fluidPage(
   # Sidebar with a slider input for user rating
   sidebarLayout(
     sidebarPanel(
-      actionButton("updateRandom", "Pick Random Joke"),  
-      actionButton("recommend", "Recommend a Joke"),  
+      helpText("You must rate the joke to see more!"),
+      hr(),
+      actionButton("updateRandom", "Pick Random Joke",width = "100%"),  
+      p(),              
+      actionButton("recommend", "Recommend a Joke",width = "100%"),  
       hr(),              
-      sliderInput("rating", "Rate this joke:", min = -10, max = 10, value = 0)
+      sliderInput("rating", "Rate this joke:", min = -10, max = 10, step = 0.01, value = NA)
     ),
     
     # Show a plot of the generated distribution
     mainPanel(
-    #  verbatimTextOutput("text", placeholder = T)
+      #verbatimTextOutput("instructions", placeholder = T),
       h4 (style = "color:green; font-family:'Comic Sans MS'; text-align: justify;", 
           textOutput("text")
       )
