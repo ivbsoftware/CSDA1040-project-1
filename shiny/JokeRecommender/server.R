@@ -66,19 +66,26 @@ MIN_NUMBER_OF_RATINGS <- 5
 
 # funcion updates screen values
 updateUI <- function(input, output, session, jid, rtNum) {
+  
   # output joke text
   output$text <- renderText({
     return(jokes[[jid,"Joke"]])
   })
   
-  # set slider to the average rating of this joke
-  updateSliderInput(session, "rating", value = jokes[[jid,"AvgRating"]])  
-
+  # reset slider
+  updateSliderInput(session, "rating", value = NA)  
+  
   # enable "recommend" button after some ratings
-  if (rtNum > MIN_NUMBER_OF_RATINGS) {
+  # and when there are some more jokes to rate
+  if (rtNum >= MIN_NUMBER_OF_RATINGS && rtNum < jokesNum) {
     shinyjs::show("recommend")
   } else {
     shinyjs::hide("recommend")
+  }
+  
+  # Nothing to rate anymore
+  if (rtNum >= jokesNum) {
+    shinyjs::hide("rating")
   }
 
   # to force user move the slider  
@@ -89,10 +96,6 @@ updateUI <- function(input, output, session, jid, rtNum) {
 # server logic
 shinyServer(function(input, output, session) {
 
-  # init flags
-  countFlag <- reactiveVal(0)
-  disableButtonsFlag <- reactiveVal(TRUE)
-  
   # init ratings vector session variable  
   ratings <- reactiveVal(rep(NA, jokesNum))
 
@@ -107,8 +110,9 @@ shinyServer(function(input, output, session) {
   observeEvent(input$updateRandom, {
     id <- next_random_joke_id(ratings())
     currentJokeId(id)
-    updateUI(input, output, session, id, ratedNum(ratings()))
-    disableButtonsFlag(TRUE)
+    rtNum <- ratedNum(ratings())
+    print (rtNum)
+    updateUI(input, output, session, id, rtNum)
   })
   
   # callback - 'recommend' button clicked
@@ -117,7 +121,6 @@ shinyServer(function(input, output, session) {
     id <- predict_joke_id("",rts)
     currentJokeId(id)
     updateUI(input, output, session, id, ratedNum(rts))
-    disableButtonsFlag(TRUE)
   })
   
   # callback - slider changes, update the user rating vector
@@ -126,21 +129,42 @@ shinyServer(function(input, output, session) {
     avg <- jokes[[jid,"AvgRating"]]
     #print (paste("slider=", input$rating, ", currentJokeId=", jid, ", average=", avg))
 
-    # update this user ratings
     ratingsVec <- ratings()
+    rtNum <- ratedNum(ratingsVec)   
+    #print(ratingsVec)
+
+    # user guiding messages
+    if (is.na(ratingsVec[jid])) {
+      message <- "Please rate the joke to see the next one!"
+      if (rtNum < MIN_NUMBER_OF_RATINGS) {
+        message <- paste0(message, "\n \nRate ",
+                          MIN_NUMBER_OF_RATINGS - rtNum, 
+                          " more jokes to see our recommedations.")
+      } else { 
+        message <- paste0(message, "\n \n ")
+      }
+    } else {
+      message <- paste0("You rated this joke as ", input$rating)
+      if (is.na(avg)) {
+        message <- paste0(message, "\nNo one else cared to rate this joke.")
+      } else {        
+        message <- paste0(message, "\nAverage rating for this joke is ", avg)
+      }
+      message <- paste0(message, "\nJoke Sentiment is ", jokes[[jid,"Sentiment"]])
+    }
+    output$msg <- renderText({
+      message
+    })
+    
+    # user can ask for a new joke when current is rated
+    if (!is.na(ratingsVec[jid])) {
+        shinyjs::enable("updateRandom")
+        shinyjs::enable("recommend")
+    }
+
+    # update this user ratings
     ratingsVec[jid] <- input$rating
     ratings(ratingsVec)
-    #print(ratings())
-
-    # now user can ask for a new joke
-    count <- countFlag() + 1
-    if (!disableButtonsFlag() && count > 2) {
-      shinyjs::enable("updateRandom")
-      shinyjs::enable("recommend")
-    }
-      
-    disableButtonsFlag(FALSE)
-    countFlag(count)
   })
   
 })

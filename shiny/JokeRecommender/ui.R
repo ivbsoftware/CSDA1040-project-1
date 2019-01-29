@@ -16,8 +16,8 @@ shinyUI(fluidPage(
   # Sidebar with a slider input for user rating
   sidebarLayout(
     sidebarPanel(
-      helpText("You must rate the joke to see more!"),
-      hr(),
+#      helpText("You must rate the joke to see more!"),
+#      hr(),
       actionButton("updateRandom", "Pick Random Joke",width = "100%"),  
       p(),              
       actionButton("recommend", "Recommend a Joke",width = "100%"),  
@@ -27,7 +27,7 @@ shinyUI(fluidPage(
     
     # Show a plot of the generated distribution
     mainPanel(
-      #verbatimTextOutput("instructions", placeholder = T),
+      verbatimTextOutput("msg"),
       h4 (style = "color:green; font-family:'Comic Sans MS'; text-align: justify;", 
           textOutput("text")
       )
