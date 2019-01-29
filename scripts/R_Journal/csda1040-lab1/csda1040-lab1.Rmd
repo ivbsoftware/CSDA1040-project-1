@@ -8,7 +8,7 @@ author:
     affiliation   : "York University School of Continuing Studies"
   - name          : "Ariana Biagi"
     affiliation   : "York University School of Continuing Studies"
-  - name          : "Grace Tsai"
+  - name          : "Hui Fang Cai"
     affiliation   : "York University School of Continuing Studies"
 abstract: >
   The goal of this project is to build a joke recommending application. The success of this project will be determined by the accuracy of which the system reccomends "good" jokes (RMSE and TPR). This model could be used by TV/Movie writers to tune the humor of a movie to their target demographic.
@@ -21,10 +21,17 @@ figsintext        : no
 
 # Introduction and Discussion
 
-The goal of this project is to build a joke recommending application.
+Since funniness is a very subjective matter, it will be very interesting to see if data science can bring out the details on what makes something funny. Having more than 50,000 users rate jokes, can an algorithm be written to identify the universal funny jokes? The purpose of the study of the cool Jester Online Joke Recommender dataset is to provide people information on recommendations of funny jokes. 
+
+In this joke recommendation model, the dataset includes over 7.6 million ratings recorded chronologically from the period between from November 2006 to May 2009. The first 90% are provided here as the training dataset and the remaining 10% as the test dataset.We use the collabrative filtering methods (used-based or item-based CF) on the rating matrix to study the algorithms between the user and the rating, and between the joke and the rating, thus is used to predict what jokes are funniest for recommendation for new users. We use RMSE/MSE/MAE to measure the accuracy of our recommendation model, and thus the most reasonable model for this study will be determined. In addition, we perform the sentiment analysis to verify if there are impacts on the rating by the sentiment score.This model could be applied to Media Industry such as TV or Moive  to tune the humor to target audiences or used for the reference of humor research.
 
 ## Dataset
-The recommender will be trained useing a  dataset of joke ratingsfrom ~73k users from http://eigentaste.berkeley.edu/dataset/. This dataset was developed to help study social information filtering. This dataset does not require much feature engineering beyond filtering out as much sparse data as is reasonable. The final dataset will be a normalized real rating matrix with a selection of jokes and users who have a sufficient number of ratings. 
+The recommender will be trained useing a  dataset of joke ratingsfrom ~73k users from http://eigentaste.berkeley.edu/dataset/. This dataset was developed to help study social information filtering. This dataset does not require much feature engineering beyond filtering out as much sparse data as is reasonable. The final dataset will be a normalized real rating matrix with a selection of jokes and users who have a sufficient number of ratings. One dataset is for the list jokes that the users rate. The another dataset is a collection of user's ratings.
+
+- Dataset 1: jester_items.tsv  contains Joke id and Joke text, including 150 jokes.
+- Dataset 2: jesterfinal151cols.csv: Each row is a user, and each column is a joke. Rating are given as real vales from Ratings are given as real values from -10.00 to +10.00. The value "99"" corresponds to a null rating. The size of this dataset is 50,691 rows x 151 columns (i.e. 50,691 users).
+
+There are many empty values and lots of null rating values presented as "99" in the jesterfinal151cols.csv rating dataset. In this study, we assume all empty values are the null rating values (NA) that are same as the null rating values presented in the dataset. There are no outliers, all the rating are ranged between -10.0 to +10.0 as expected. This dataset does not require much feature engineering beyond filtering out as much sparse data as is reasonable. The final dataset can be a normalized real rating matrix with a selection of jokes and users who have a sufficient number of ratings. 
 
 
 ## Ethical ML Framework
@@ -33,18 +40,10 @@ As the goal of this application is only to reccomend jokes, many aspects of the 
 ## Assumptions
 We assume that the users are a wide distribution of individuals from various backgrounds and geographic locations across the United States.
 
-
-# Init libraries
+# Data preparation
 
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 set.seed(777)
-
-if(! "recommenderlab" %in% installed.packages()) 
-  install.packages("recommenderlab", depend = TRUE)
-if(! "readr" %in% installed.packages()) 
-  install.packages("readr", depend = TRUE)
-if(! "RDSTK" %in% installed.packages()) 
-  install.packages("RDSTK", depend = TRUE)
 
 library("recommenderlab")
 library("ggplot2")
@@ -59,9 +58,12 @@ library("Matrix")
 #setwd(this.dir)
 ```
 
-## Load the jokes rating data
+## Load the jokes rating data and do the basic checks
 ```{r message=FALSE, warning=FALSE}
 df <- read_csv(file="../../../data/jesterfinal151cols.csv.zip",col_names = FALSE)
+dim(df)
+str(df)
+colSums(is.na(df)|df=="")
 ```
 
 ## Rename columns as per their "Joke ID" and columns to the userid
@@ -115,21 +117,22 @@ ggplot() + aes(ratingcount_u)+ geom_histogram(colour="black", fill="white")+
 
 ## Does sentiment score have an impact on the rating of a joke?
 
+Initialize the Jokes dataframe to incorporate sentiment score and avg rating:
 ```{r}
-#initialize the Jokes dataframe to incorporate sentiment score and avg rating 
 jokes[,2]<-1
 jokes[,3]<-1
 colnames(jokes)<-c("Joke","Sentiment","AvgRating")
 head(jokes)
 ```
 
+## Attain a sentiment score for each joke from DataScienceToolkit.com
+
+Getting sentiment score and median for jokes to see if there's any relation between joke rating and sentiment:
 ```{r}
-#attain a sentiment score for each joke from DataScienceToolkit.com
 for (i in 1:nrow(jokes)) {
   jokes[i,2]<- text2sentiment(jokes[[i,1]])
 }
 ```
-
 ```{r}
 for (i in 1:nrow(jokes)) {
   jokes[i,3]<- median(df[[i+1]],na.rm=TRUE)

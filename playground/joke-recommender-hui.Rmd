@@ -1,0 +1,398 @@
+---
+title: "Jokes Recommender ver. 1"
+author: "Igor Baranov, Michael Parravani, Ariana Biagi,Hui Fang Cai"
+date: "January 22, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction and Project plan
+
+Since funniness is a very subjective matter, it will be very interesting to see if data science can bring out the details on what makes something funny. Having more than 50,000 users rate jokes, can an algorithm be written to identify the universal funny jokes? The purpose of the study of the cool Jester Online Joke Recommender dataset is to provide people information on recommendations of funny jokes. 
+
+In this joke recommendation model, the dataset includes over 7.6 million ratings recorded chronologically from the period between from November 2006 to May 2009. The first 90% are provided here as the training dataset and the remaining 10% as the test dataset.We use the collabrative filtering methods (used-based or item-based CF) on the rating matrix to study the algorithms between the user and the rating, and between the joke and the rating, thus is used to predict what jokes are funniest for recommendation for new users. We use RMSE/MSE/MAE to measure the accuracy of our recommendation model, and thus the most reasonable model for this study will be determined. In addition, we perform the sentiment analysis to verify if there are impacts on the rating by the sentiment score.This model could be applied to Media Industry such as TV or Moive  to tune the humor to target audiences or used for the reference of humor research.
+
+## Dataset
+
+Jester is a joke recommender system developed at UC Berkeley to study social information filtering. Users of the system are presented a joke and then they rate them. The information is collected into two datasets that can be obtained from http://eigentaste.berkeley.edu/. One dataset is for the list jokes that the users rate. The another dataset is a collection of user's ratings.
+
+Dataset 1: jester_items.tsv  contains Joke id and Joke text, including 150 jokes .
+Dataset 2: jesterfinal151cols.csv: Each row is a user, and each column is a joke. Rating are given as real vales from Ratings are given as real values from -10.00 to +10.00. The value "99"" corresponds to a null rating.The size of this dataset is 50,691 rows x 151 columns (i.e. 50,691 users).
+
+There are many empty values and lots of null rating values presented as "99" in the jesterfinal151cols.csv rating dataset. In this study, we assume all empty values are the null rating values (NA) that are same as the null rating values presented in the dataset. There are no outliers, all the rating are ranged between -10.0 to +10.0 as expected. This dataset does not require much feature engineering beyond filtering out as much sparse data as is reasonable. The final dataset can be a normalized real rating matrix with a selection of jokes and users who have a sufficient number of ratings. 
+
+
+## Ethical ML Framework
+As the goal of this application is only to reccomend jokes, many aspects of the ethical ML framework do not directly apply. The data is open source and we can assume was collected in transparent ways. That being said, there is likely a large segment of the populace that is under represented in this ratings dataset - we assume a low income population (limited access to internet, limited time to be spent rating jokes, etc). This will potentially reduce the reccomender's accuracy for that group of the population. If the outcome of this system were to be of more social impact, this would need to be corrected with appropriate data. collection methods. 
+
+The funniness of joke is very subjective.The setiment analysis is performed in this study and see if there is any relation to the joke rating and sentiment because the users require skills such as natural language processing, text analysis, computational linguistics etc to systmetically identify, extract, and quantify affective states and subjective information.For a recommender system, sentiment analysis has been proven to be a valuable technique.
+
+##Assumptions
+We assume that the users are a wide distribution of individuals from various backgrounds and geographic locations with various ages across the United States.
+
+
+# Import libraries
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+
+set.seed(777)
+
+if(! "recommenderlab" %in% installed.packages()) 
+  install.packages("recommenderlab", depend = TRUE)
+if(! "readr" %in% installed.packages()) 
+  install.packages("readr", depend = TRUE)
+if(! "RDSTK" %in% installed.packages()) 
+  install.packages("RDSTK", depend = TRUE)
+
+library(tidyverse)
+library(plyr)
+library(dplyr)
+library(recommenderlab)
+library(ggplot2)
+library(readr)
+library(RDSTK)
+library(Matrix)
+
+```
+
+## Set directory to current script (works in R Studio only)
+```{r}
+#this.dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
+#setwd(this.dir)
+```
+
+# Load the joke rating dataset and check empty values and data structure
+```{r message=FALSE, warning=FALSE}
+df <- read_csv(file="../data/jesterfinal151cols.csv.zip",col_names = FALSE)
+dim(df)
+str(df)
+colSums(is.na(df)|df=="")
+
+
+# Rename columns as RATINGS and rows as userid
+names(df) <- c("RATINGS",1:(ncol(df)-1))
+row.names(df) <- c(1:nrow(df))
+
+# Replace empty values as null rating 99, and replace all of 99 ratings with NA so we can filter all out
+df[,2:151][df[,2:151]==""]<-99
+df
+df[,2:151][df[,2:151]==99]<-NA
+df
+
+# Check outliers ( outlier <- rating >10.0 or rating < -10.0)
+df[,2:151]> 10.0
+df[,2:151]< -10.0
+
+# The output shows all"FALSE",inidicating there is no outliers.
+
+```
+
+## Load the jokes text dataset
+```{r message=FALSE, warning=FALSE}
+jokes <- read_tsv(file="../data/jester_items.tsv",col_names = FALSE)
+jokes <- jokes['X2']
+head(jokes)
+```
+
+## What's the distribution of rating count? 
+
+```{r}
+ratingcount<-nrow(df)-colSums(is.na(df[,2:ncol(df)]))
+summary(ratingcount)
+```
+Anticipate that many jokes probably have low number of ratings. The fact is the median joke rating quantity is ~18% of users having rated it is quite low. 
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot() + aes(ratingcount)+ geom_histogram(colour="black", fill="white")+
+  ylab("Number of Jokes")+
+  xlab("Number of Ratings")
+```
+The jokes with extremely low numbers of ratings are likely new to the system and have not been rated much.As the plot shows that there are around more than 20 less than 25 jokes has not been rated at all. Following that, there is a exponential decrease in rating count to jokes where about half of the users have rated them. The jokes where all the users rated them are "control" jokes, but it is interesting that there are no jokes between ~25k and 50k ratings.   (skew to the right)
+
+
+## How many users have given a reasonable amount of ratings?
+```{r}
+ratingcount_u<-as.vector(df[[1]])
+summary(ratingcount_u)
+```
+
+```{r message=FALSE, warning=FALSE}
+ggplot() + aes(ratingcount_u)+ geom_histogram(colour="black", fill="white")+
+  ylab("Number of Users")+
+  xlab("Number of Ratings Given")
+```
+There is an exponential drop in the number of ratings given by users. The group with ~140 ratings is potentially a control group. We will have to establish a cut off for the data that excludes users with a very low number of ratings. (skew to the right )
+
+
+## Does sentiment score have an impact on the rating of a joke?
+## Get sentiment score for jokes to see if there's any relation between joke rating and sentiment
+
+```{r}
+# Initialize the Jokes dataframe to incorporate sentiment score and avg rating 
+jokes[,2]<-1
+jokes[,3]<-1
+colnames(jokes)<-c("Joke","Sentiment","AvgRating")
+head(jokes)
+```
+
+```{r}
+# Attain a sentiment score for each joke from DataScienceToolkit.com
+
+for (i in 1:nrow(jokes)) {
+  jokes[i,2]<-text2sentiment(jokes[[i,1]])
+}
+```
+
+
+```{r}
+for (i in 1:nrow(jokes)) {
+  jokes[i,3]<- median(df[[i+1]],na.rm=TRUE)
+}
+head(jokes)
+```
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+ggplot(data=jokes, mapping = aes(x=jokes$Sentiment,y=jokes$AvgRating)) +
+  geom_point()+
+  ggtitle("Sentiment vs Median Rating")+
+  ylab("Median Rating") + xlab("Sentiment Score")
+```
+From the plot, it seems as there is no correlation between sentiment score and joke rating. Further analysis into this would be to see if there are users who like distinctly high/low sentiment score jokes.
+
+
+# Use with Recommender Lab library
+## Convert data to realRatingMatrix object
+
+```{r message=FALSE, warning=FALSE}
+s<-as(df[,2:ncol(df)], "matrix")
+dimnames(s) <- list(rownames(s, do.NULL = FALSE, prefix = "u"),
+                    colnames(s, do.NULL = FALSE, prefix = "j"))
+s<-as(dropNA(s), "sparseMatrix")
+rm <- new("realRatingMatrix",data=s)
+rm
+```
+
+## Visualizing ratings
+
+```{r}
+qplot(getRatings(rm), binwidth = 1, 
+      main = "Histogram of ratings", xlab = "Rating", ylab = "Number of users")
+```
+The rating range in the dataset are from -10.0 to +10.0. It's interesting that substantially more jokes have a positve rating than negative. With the highest density of ratings at +3. This indicates jokes are generally enjoyed, but users don't often *love* them. 
+
+
+## Check how many jokes have the users rated
+```{r}
+summary(rowCounts(rm))
+
+nusers=dim(rm)[1]
+njokes=dim(rm)[2]
+
+```
+
+## Visualise a part of the ratings matrix.
+```{r}
+image(rm[sample(nusers,25),sample(njokes,25)])
+```
+There is lots of missing data. This will potentially affect the accuracy of the reccomender algorithm as it does not have a great deal of data to train from. 
+
+
+## Visualizing a sample of ratings
+
+```{r fig.height=10, fig.width=6, message=FALSE, warning=FALSE, paged.print=FALSE}
+image(sample(rm, 500), main = "Raw ratings")
+```
+Again, the above plot shows there is a lot of missing data. This is evident of a userbase that has not rated a substantial amount of the content. 
+
+
+# What is the distribution of ratings
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+summary(getRatings(rm)) 
+```
+The ratings (as shown in the above histogram) is right skewed. with the median at a rating of 2.25
+
+
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+qplot(getRatings(normalize(rm, method = "Z-score")),
+      main = "Histogram of normalized ratings", xlab = "Rating") 
+
+```
+With the ratings normalized, the right-skewed tendency is still present. This indicates more of the jokes were "liked" by the users.
+
+
+# Take subset of data -> users with >50 ratings
+
+This subset of users who have rated more than 1/3 of the jokes will allow for our training set to be more dense, and subsequently improve the accuracy of the reccomender.
+```{r}
+Jokes50 <- rm[rowCounts(rm) >50,]
+Jokes50
+summary(getRatings(normalize(Jokes50, method = "Z-score"))) 
+```
+This distribution seems better than the one done for all the users
+
+
+```{r}
+#what is the joke rating count distribution for this subset
+qplot(rowCounts(rm), binwidth = 10, 
+      main = "Jokes Rated on average", 
+      xlab = "# of Users", 
+      ylab = "# of Jokes rated")
+```
+Similar logarithmic curve of ratings counts decreasing quickly. And what looks to be a control group of users with ~140 ratings.
+
+
+## Present mean rating of jokes
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+qplot(colMeans(rm), binwidth = .5, 
+      main = "Mean rating of Jokes", 
+      xlab = "Rating", 
+      ylab = "# of jokes")
+```
+The ratings of this small group are still right skewed
+
+
+# Train a User-Based Collaborative Filtering Recommender using a small training set.
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+recommenderRegistry$get_entries(dataType = "realRatingMatrix")
+train <- Jokes50[1:500]
+```
+
+We have a few options. 
+```{r}
+
+scheme <- evaluationScheme(Jokes50, method = "split", train = .9,
+                           k = 1, given = 10, goodRating = 4)
+scheme
+```
+
+Let's check some algorithms against each other
+```{r}
+tr <- getData(scheme, "train"); tr
+tst_known <- getData(scheme, "known"); tst_known
+tst_unknown <- getData(scheme, "unknown"); tst_unknown
+```
+
+```{r}
+algorithms <- list(
+  "random items" = list(name="RANDOM", param=list(normalize = "Z-score")),
+  "popular items" = list(name="POPULAR", param=list(normalize = "Z-score")),
+  "user-based CF" = list(name="UBCF", param=list(normalize = "Z-score", method="Cosine", nn=50)),
+  "item-based CF" = list(name="IBCF", param=list(normalize = "Z-score", method="Cosine"))
+)
+```
+
+## run algorithms, predict next n jokes (list)
+```{r}
+results <- evaluate(scheme, algorithms, n=c(1, 3, 5, 10, 15, 20))
+```
+
+## Draw ROC curve
+```{r}
+plot(results, annotate = 1:4, legend="topleft")
+```
+One can see that the Popular and User-based algorithms have better true positive rate performance than random item selection. We will use the User-based CF model as it is more relevant to the assignment. 
+
+#Find RMSE for User-Based CF Recommender
+
+## 
+```{r}
+rcmnd_ub <- Recommender(tr, "UBCF", param=list(method="pearson",nn=50))
+rcmnd_ub_c <- Recommender(tr, "UBCF", param=list(method="Cosine",nn=50))
+rcmnd_Ib <- Recommender(tr, "IBCF", param=list(method="Cosine"))
+```
+
+Create predictions for the test users using known ratings
+```{r}
+pred_ub <- predict(rcmnd_ub, tst_known, type="ratings"); pred_ub
+pred_ub_c<- predict(rcmnd_ub_c, tst_known, type="ratings"); pred_ub_c
+pred_ib <- predict(rcmnd_Ib, tst_known, type="ratings"); pred_ib
+
+```
+
+Evaluate recommendations on "unknown" ratings
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+#UB Pearson (User-based CF-Person)
+acc_ub <- calcPredictionAccuracy(pred_ub, tst_unknown)
+as(acc_ub,"matrix")
+
+#UB Cosine (User-based CF-Cosine)
+acc_ub_c <- calcPredictionAccuracy(pred_ub_c, tst_unknown)
+as(acc_ub_c,"matrix")
+
+#IB Cosine (Item-based CF-Cosine)
+acc_ib <- calcPredictionAccuracy(pred_ib, tst_unknown)
+as(acc_ib,"matrix")
+
+
+```
+The RMSE/MSE/MAE is higher than we'd like to expect for all algorithms, and is likely due to the fact that there is so much missing data. Unfortunately, we will have to continue with this model. 
+We will continue with the User-Based CF with Pearson method as it has the lowest RMSE/MSE/MAE values.
+
+
+## Compare predictions with true "unknown" ratings
+```{r}
+as(tst_unknown, "matrix")[1:8,1:5]
+as(pred_ub, "matrix")[1:8,1:5]
+```
+From a cursery visual check, the model accuracy is unfortunately quite low. This again is due to the sparse dataset.
+
+## Create top-N recommendations for new users (users 1000 and 1001)
+```{r}
+pre <- predict(rcmnd_ub, Jokes50[1000:1001], n = 10)
+pre
+```
+
+## Recommendations as 'topNList' with n = 10 for 2 users. 
+```{r}
+as(pre, "list")
+```
+
+## Create a 'new' user ratings and recommend next joke
+
+```{r message=FALSE, warning=FALSE}
+# create a random matrix with ratings
+rr <- sample(c(NA,0:5),ncol(df)-1, replace=TRUE, prob=c(.7,rep(.3/6,6)))
+rr
+
+## coerce into a realRatingMAtrix
+m <- matrix(rr,
+	nrow=1, ncol=(ncol(df)-1), dimnames = list(
+	    user=paste('u', 1:1, sep=''),
+	    item=paste('i', 1:(ncol(df)-1), sep='')
+    ))
+print (m)
+
+ratings.new <- as(m, "realRatingMatrix")
+print (ratings.new)
+
+# recommend next joke
+recNext <- predict(rcmnd_ub, ratings.new, n = 1)
+recNum<-as(recNext, "list")
+recNum
+
+sprintf("The next recommended joke is %s", recNum[[1]])
+print (jokes[recNum[[1]],1])
+
+```
+
+
+# Prepare Shiny App for Deployment
+
+## Saving recommender data objects
+```{r}
+saveRDS(rcmnd_ub, file = "jokeRecommender.Rds")
+saveRDS(jokes, file = "jokes.Rds")
+```
+
+#Deployment Discussion
+
+This model is currently not of much use given its accuracy due to too much missing values, but it will serve as a proof of concept.From this model trial study, we know that the user-based CF-pearson method might produce a better outcome than other models. If possilbe, it could be used to help writers of movies/tv shows write jokes appropriate to target audiences who are looking for fun.
+
+Definiately,more data should be collected from this userbase to fill a training dataset. The dataset in its current state is quite sparse. The data would need to be updated every 3-5 years as people's taste changes and people within certian age groups mature. The Shiny app developed would be a deployment method to collect more data. 
+
+Further analysis could be done (with the appropriate data) to see how similar taste in humor is related to age. 
