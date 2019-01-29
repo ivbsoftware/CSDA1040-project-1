@@ -16,8 +16,6 @@ shinyUI(fluidPage(
   # Sidebar with a slider input for user rating
   sidebarLayout(
     sidebarPanel(
-#      helpText("You must rate the joke to see more!"),
-#      hr(),
       actionButton("updateRandom", "Pick Random Joke",width = "100%"),  
       p(),              
       actionButton("recommend", "Recommend a Joke",width = "100%"),  
