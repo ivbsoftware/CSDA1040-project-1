@@ -62,8 +62,6 @@ library("Matrix")
 ```{r message=FALSE, warning=FALSE}
 df <- read_csv(file="../../../data/jesterfinal151cols.csv.zip",col_names = FALSE)
 dim(df)
-str(df)
-colSums(is.na(df)|df=="")
 ```
 
 ## Rename columns as per their "Joke ID" and columns to the userid
@@ -350,7 +348,7 @@ m <- matrix(rr,
 	    user=paste('u', 1:1, sep=''),
 	    item=paste('i', 1:(ncol(df)-1), sep='')
     ))
-print (m)
+m
 
 ratings.new <- as(m, "realRatingMatrix")
 print (ratings.new)
@@ -364,7 +362,6 @@ sprintf("The next recommended joke is %s", recNum[[1]])
 print (jokes[recNum[[1]],1])
 
 ```
-
 
 # Prepare Shiny App for Deployment
 
