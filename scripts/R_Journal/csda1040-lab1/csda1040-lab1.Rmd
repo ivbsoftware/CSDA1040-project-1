@@ -186,14 +186,14 @@ image(rm[sample(nusers,25),sample(njokes,25)])
 
 ## Visualizing a sample of ratings
 
-The following plot (Fig. \ref{fig:fig5}) shows there is a lot of missing data. This is evident of a userbase that has not rated a substantial amount of the content. 
+The following plot (Fig. \ref{fig:fig6}) shows there is a lot of missing data. This is evident of a userbase that has not rated a substantial amount of the content. 
 ```{r fig6, echo=FALSE, fig.align="center", fig.cap="Raw ratings distribution visualization", fig.height=9}
 image(sample(rm, 500))
 ```
 
 ## What is the distribution of ratings
 
-The ratings (as shown in the (Fig. \ref{fig:fig6}) histogram) is right skewed. with the median at a rating of 2.25.
+The ratings (as shown in the (Fig. \ref{fig:fig7}) histogram) is right skewed. with the median at a rating of 2.25.
 
 ```{r message=FALSE, warning=FALSE, paged.print=FALSE}
 summary(getRatings(rm)) 
@@ -215,7 +215,7 @@ Jokes50
 summary(getRatings(normalize(Jokes50, method = "Z-score"))) 
 ```
 
-Similar logarithmic curve of ratings counts decreasing quickly (Fig. \ref{fig:fig8). And what looks to be a control group of users with ~140 ratings.
+Similar logarithmic curve of ratings counts decreasing quickly (Fig. \ref{fig:fig8}). And what looks to be a control group of users with ~140 ratings.
 
 ```{r fig8, echo=FALSE, fig.align="center", fig.cap="Rating count distribution for this subset", fig.width=5.5, paged.print=FALSE}
 qplot(rowCounts(rm), binwidth = 10, 
@@ -226,7 +226,7 @@ qplot(rowCounts(rm), binwidth = 10,
 
 ## Present mean rating of jokes
 
-The ratings of this small group are still right skewed (Fig. \ref{fig:fig9).
+The ratings of this small group are still right skewed (Fig. \ref{fig:fig9}).
 
 ```{r fig9, echo=FALSE, fig.align="center", fig.cap="Rating count distribution for this subset", fig.width=5.5, paged.print=FALSE}
 qplot(colMeans(rm), binwidth = .5, 
@@ -275,7 +275,7 @@ results <- evaluate(scheme, algorithms, n=c(1, 3, 5, 10, 15, 20))
 
 ## Visualize ROC curves
 
-One can see (Fig. \ref{fig:fig10) that the Popular and User-based algorithms have better true positive rate performance than random item selection. We will use the UserBased model as it is more relevant to the assignment. 
+One can see (Fig. \ref{fig:fig10}) that the Popular and User-based algorithms have better true positive rate performance than random item selection. We will use the UserBased model as it is more relevant to the assignment. 
 
 ```{r fig10, echo=FALSE, fig.align="center", fig.cap="Performance of Popular and User-based algorithms", fig.width=5.5, paged.print=FALSE}
 plot(results, annotate = 1:4, legend="topleft")
