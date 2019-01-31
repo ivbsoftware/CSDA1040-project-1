@@ -21,7 +21,7 @@ jokesNum <- nrow(jokes)
 
 # function returns a random index of next joke not rated by this user
 next_random_joke_id <- function(rts) {
-  if (is.null(rts)) {
+  if (is.null(rts) || ratedNum(rts) == 0) {
     return(sample.int(150,1))
   }
   nextJokeId <- -1
@@ -39,7 +39,7 @@ next_random_joke_id <- function(rts) {
 predict_joke_id <- function(method, rts) {
   
   # if no ratings vector not yet initialized
-  if (is.null(rts)) {
+  if (is.null(rts) || ratedNum(rts) == 0) {
     return(sample.int(150,1))
   }
   
